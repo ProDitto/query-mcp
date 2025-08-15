@@ -2,10 +2,15 @@ from fastmcp import Client
 from google import genai
 import asyncio
 from dotenv import load_dotenv
+import sys
 
 load_dotenv()
 
-mcp_client = Client("server.py")
+try:
+    mcp_client = Client("./mcp_server/server.py")
+except Exception as e:
+    print("Handle me : ", e)
+
 gemini_client = genai.Client()
 
 async def chat_loop():
@@ -42,4 +47,5 @@ async def chat_loop():
             chat_history.append(f"Gemini: {response.text}")
 
 if __name__ == "__main__":
-    asyncio.run(chat_loop())
+    # asyncio.run(chat_loop())
+    print("client")
