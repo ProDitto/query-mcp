@@ -3,6 +3,8 @@ from fastmcp import FastMCP
 import os
 import sys
 import importlib.util
+from typing import Optional, List, Dict
+from datetime import date
 
 # ===================================== import modules as path =====================================
 def import_module_from_path(file_path, module_name=None):
@@ -66,6 +68,253 @@ def roll_dice(n_dice: int) -> list[int]:
     """Roll `n_dice` 6-sided dice and return the results."""
     return [random.randint(1, 6) for _ in range(n_dice)]
 
+# Base Images Tools
+@mcp.tool
+def create_base_image(name: str, version: str, release_date: Optional[date] = None) -> Optional[int]:
+    """
+    Create a new base image entry in the database.
+    
+    Args:
+        name: Name of the base image (e.g., "ubuntu")
+        version: Version of the base image (e.g., "20.04")
+        release_date: Optional release date of the base image
+        
+    Returns:
+        The ID of the newly created base image or None if creation failed
+    """
+    return db_manager.create_base_image(name, version, release_date)
+
+@mcp.tool
+def get_base_images(name_filter: Optional[str] = None, 
+                   version_filter: Optional[str] = None) -> List[Dict]:
+    """
+    Retrieve base images, optionally filtered by name or version.
+    
+    Args:
+        name_filter: Optional string to filter base image names (partial match)
+        version_filter: Optional string to filter base image versions (partial match)
+        
+    Returns:
+        List of dictionaries representing base image records
+    """
+    results = db_manager.get_base_images(name_filter, version_filter)
+    return [dict(zip(['id', 'name', 'version', 'release_date'], row)) for row in results]
+
+# Packages Tools
+@mcp.tool
+def create_package(name: str, base_image_id: int) -> Optional[int]:
+    """
+    Create a new package associated with a base image.
+    
+    Args:
+        name: Name of the package (e.g., "openssl")
+        base_image_id: ID of the associated base image
+        
+    Returns:
+        The ID of the newly created package or None if creation failed
+    """
+    return db_manager.create_package(name, base_image_id)
+
+@mcp.tool
+def get_packages_for_base_image(base_image_id: int) -> List[Dict]:
+    """
+    Retrieve all packages associated with a specific base image.
+    
+    Args:
+        base_image_id: ID of the base image
+    
+    Returns:
+        List of dictionaries representing package records
+    """
+    results = db_manager.get_packages_for_base_image(base_image_id)
+    return [dict(zip(['id', 'name', 'base_image_id'], row)) for row in results]
+
+# Package Tags Tools
+@mcp.tool
+def create_package_tag(package_id: int, tag: str) -> Optional[int]:
+    """
+    Create a new tag for a package.
+    
+    Args:
+        package_id: ID of the package
+        tag: Tag name/version (e.g., "1.1.1")
+        
+    Returns:
+        The ID of the newly created tag or None if creation failed
+    """
+    return db_manager.create_package_tag(package_id, tag)
+
+@mcp.tool
+def get_tags_for_package(package_id: int) -> List[Dict]:
+    """
+    Retrieve all tags associated with a specific package.
+    
+    Args:
+        package_id: ID of the package
+    
+    Returns:
+        List of dictionaries representing package tag records
+    """
+    results = db_manager.get_tags_for_package(package_id)
+    return [dict(zip(['id', 'package_id', 'tag', 'created_at'], row)) for row in results]
+
+# Vulnerabilities Tools
+@mcp.tool
+def create_vulnerability(cve_id: str, 
+                        description: Optional[str] = None, 
+                        discovered_at: Optional[date] = None) -> Optional[int]:
+    """
+    Create a new vulnerability record.
+    
+    Args:
+        cve_id: CVE identifier (e.g., "CVE-2022-2068")
+        description: Optional description of the vulnerability
+        discovered_at: Optional date the vulnerability was discovered
+        
+    Returns:
+        The ID of the newly created vulnerability or None if creation failed
+    """
+    return db_manager.create_vulnerability(cve_id, description, discovered_at)
+
+@mcp.tool
+def get_vulnerability_by_cve(cve_id: str) -> Optional[Dict]:
+    """
+    Retrieve a vulnerability by its CVE ID.
+    
+    Args:
+        cve_id: CVE identifier (e.g., "CVE-2022-2068")
+    
+    Returns:
+        Dictionary representing the vulnerability record or None if not found
+    """
+    result = db_manager.get_vulnerability_by_cve(cve_id)
+    if result:
+        return dict(zip(['id', 'cve_id', 'description', 'discovered_at'], result))
+    return None
+
+# Tag-Vulnerability Relationship Tools
+@mcp.tool
+def add_vulnerability_to_tag(package_tag_id: int, 
+                           vulnerability_id: int, 
+                           severity: Optional[str] = None) -> bool:
+    """
+    Associate a vulnerability with a package tag.
+    
+    Args:
+        package_tag_id: ID of the package tag
+        vulnerability_id: ID of the vulnerability
+        severity: Optional severity level (e.g., "HIGH", "MEDIUM", "LOW")
+        
+    Returns:
+        True if the association was successful, False otherwise
+    """
+    return db_manager.add_vulnerability_to_tag(package_tag_id, vulnerability_id, severity)
+
+@mcp.tool
+def get_vulnerabilities_for_tag(package_tag_id: int) -> List[Dict]:
+    """
+    Retrieve all vulnerabilities associated with a package tag.
+    
+    Args:
+        package_tag_id: ID of the package tag
+    
+    Returns:
+        List of dictionaries with vulnerability information and severity
+    """
+    results = db_manager.get_vulnerabilities_for_tag(package_tag_id)
+    return [dict(zip(['id', 'cve_id', 'description', 'discovered_at', 'severity'], row)) for row in results]
+
+# Commits Tools
+@mcp.tool
+def create_commit(package_tag_id: int, 
+                 commit_hash: str, 
+                 author: Optional[str] = None, 
+                 message: Optional[str] = None) -> Optional[int]:
+    """
+    Create a new commit record associated with a package tag.
+    
+    Args:
+        package_tag_id: ID of the package tag
+        commit_hash: Git commit hash (e.g., "a1b2c3d4e5f6")
+        author: Optional author name
+        message: Optional commit message
+        
+    Returns:
+        The ID of the newly created commit or None if creation failed
+    """
+    return db_manager.create_commit(package_tag_id, commit_hash, author, message)
+
+@mcp.tool
+def get_commits_for_tag(package_tag_id: int) -> List[Dict]:
+    """
+    Retrieve all commits associated with a package tag.
+    
+    Args:
+        package_tag_id: ID of the package tag
+    
+    Returns:
+        List of dictionaries representing commit records
+    """
+    results = db_manager.get_commits_for_tag(package_tag_id)
+    return [dict(zip(['id', 'package_tag_id', 'commit_hash', 'author', 'committed_at', 'message'], row)) for row in results]
+
+# Database Management Tools
+@mcp.tool
+def reset_database() -> str:
+    """
+    Reset the entire database (warning: this will delete all data).
+    
+    Returns:
+        Status message indicating success or failure
+    """
+    try:
+        db_manager.reset_database()
+        seed_result = db_manager.setup_database()
+        return f"Database reset and schema recreated successfully; {seed_result}"
+    except Exception as e:
+        return f"Error resetting database: {str(e)}"
+
+# Get Database Schema
+@mcp.tool
+def get_schema() -> str:
+    """
+    Get a brief of schema for the only postgresql database we use.
+    
+    Returns:
+        returns the brief of postgresql database schema.
+    """
+    return """
+        format: `tablename: attributes`
+        - base_images: id(int,pk), name(str), version(str), release_date(date)
+        - packages: id(int, pk), name(str), base_image_id(fk)
+        - package_tags: id(int,pk), package_id(fk), tag(str), created_at(timestamp)
+        - vulnerabilities: id(int,pk), cve_id(str,unique), description(str), discovered_at(date)
+        - tag_vulnerabilities: package_tag_id(fk), vulnerability_id(fk), severity(str)
+        - commits: id(int,pk), package_tag_id(fk), commit_hash(str,unique), author(str), committed_at(timestamp), message(str)
+        * indexes for performance
+        - idx_packages_base_image ON packages(base_image_id);
+        - idx_tags_package_id ON package_tags(package_id);
+        - idx_tag_vuln_vulnerability_id ON tag_vulnerabilities(vulnerability_id);
+        - idx_commits_package_tag_id ON commits(package_tag_id);
+    """
+
+@mcp.tool(
+    name="execute_raw_query",
+    description="Execute a raw SQL query on the vulnerability tracking database (typically SELECT). Returns rows as a list of tuples.",
+    annotations={"readOnlyHint": True, "openWorldHint": True}
+)
+def tool_execute_raw_query(query: str) -> list[list]:
+    """
+    Executes the provided SQL query and returns results as a list of rows,
+    with each row itself represented as a list of column values.
+    """
+    try:
+        rows = db_manager.execute_raw_query(query)
+        return [list(row) for row in (rows or [])]
+    except Exception as e:
+        raise RuntimeError(f"Error executing raw query: {e}")
+
+
 if __name__ == "__main__":
     # # for debug purpose only 
     # print("server",os.getcwd())
@@ -73,3 +322,4 @@ if __name__ == "__main__":
     #     f.write("server "+os.getcwd()+"\n")
     #     f.write(db_manager.get_name()+"\n")
     mcp.run()
+    db_manager.close_connection()
