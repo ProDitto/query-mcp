@@ -32,7 +32,7 @@ async def chat_loop():
 
             # Send the chat history as context to the model
             response = await gemini_client.aio.models.generate_content(
-                model="gemini-2.0-flash-lite",
+                model="gemini-2.5-pro",
                 contents=chat_context,
                 config=genai.types.GenerateContentConfig(
                     temperature=0.7,  # Adjust temperature as needed
